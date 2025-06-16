@@ -113,7 +113,6 @@ for _, levelFolder in pairs(levelsFolder:GetChildren()) do
     end
 end
 
--- Sort the level names
 table.sort(levelNames, function(a, b)
     local numA = tonumber(a:match("Level (%d+)")) or 0
     local numB = tonumber(b:match("Level (%d+)")) or 0
@@ -156,12 +155,43 @@ TeleportDropdown:OnChanged(function(Value)
         end
         
         if targetCFrame then
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0)
-            Fluent:Notify({
-                Title = "Teleported",
-                Content = "Teleported to " .. Value,
-                Duration = 2
-            })
+            local player = game.Players.LocalPlayer
+            local character = player.Character
+            local humanoid = character:FindFirstChild("Humanoid")
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            
+            if humanoid and rootPart then
+                -- Use pathfinding to walk to the button
+                local pathfindingService = game:GetService("PathfindingService")
+                local path = pathfindingService:CreatePath()
+                
+                local success, errorMessage = pcall(function()
+                    path:ComputeAsync(rootPart.Position, targetCFrame.Position)
+                end)
+                
+                if success and path.Status == Enum.PathStatus.Success then
+                    local waypoints = path:GetWaypoints()
+                    
+                    for _, waypoint in pairs(waypoints) do
+                        humanoid:MoveTo(waypoint.Position)
+                        humanoid.MoveToFinished:Wait()
+                    end
+                    
+                    Fluent:Notify({
+                        Title = "Arrived",
+                        Content = "Walked to " .. Value,
+                        Duration = 2
+                    })
+                else
+                    -- Fallback to teleport if pathfinding fails
+                    rootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0)
+                    Fluent:Notify({
+                        Title = "Teleported",
+                        Content = "Pathfinding failed, teleported to " .. Value,
+                        Duration = 2
+                    })
+                end
+            end
         end
     end
 end)
