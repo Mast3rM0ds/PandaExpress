@@ -119,9 +119,16 @@ table.sort(levelNames, function(a, b)
     return numA < numB
 end)
 
+-- Toggle for walk vs teleport
+local WalkToggle = Tabs.ESP:AddToggle("WalkMode", {
+    Title = "Walk to Button", 
+    Description = "Enable to walk, disable to teleport",
+    Default = false 
+})
+
 local TeleportDropdown = Tabs.ESP:AddDropdown("TeleportDropdown", {
-    Title = "Teleport to Level",
-    Description = "Select a level to teleport to its button",
+    Title = "Go to Level",
+    Description = "Select a level to go to its button",
     Values = levelNames,
     Multi = false,
     Default = 1,
@@ -161,33 +168,50 @@ TeleportDropdown:OnChanged(function(Value)
             local rootPart = character:FindFirstChild("HumanoidRootPart")
             
             if humanoid and rootPart then
-                -- Use pathfinding to walk to the button
-                local pathfindingService = game:GetService("PathfindingService")
-                local path = pathfindingService:CreatePath()
-                
-                local success, errorMessage = pcall(function()
-                    path:ComputeAsync(rootPart.Position, targetCFrame.Position)
-                end)
-                
-                if success and path.Status == Enum.PathStatus.Success then
-                    local waypoints = path:GetWaypoints()
+                -- Check if walk mode is enabled
+                if Options.WalkMode.Value then
+                    -- Use pathfinding to walk to the button
+                    local pathfindingService = game:GetService("PathfindingService")
+                    local path = pathfindingService:CreatePath()
                     
-                    for _, waypoint in pairs(waypoints) do
-                        humanoid:MoveTo(waypoint.Position)
-                        humanoid.MoveToFinished:Wait()
+                    local success, errorMessage = pcall(function()
+                        path:ComputeAsync(rootPart.Position, targetCFrame.Position)
+                    end)
+                    
+                    if success and path.Status == Enum.PathStatus.Success then
+                        local waypoints = path:GetWaypoints()
+                        
+                        Fluent:Notify({
+                            Title = "Walking",
+                            Content = "Walking to " .. Value,
+                            Duration = 2
+                        })
+                        
+                        for _, waypoint in pairs(waypoints) do
+                            humanoid:MoveTo(waypoint.Position)
+                            humanoid.MoveToFinished:Wait()
+                        end
+                        
+                        Fluent:Notify({
+                            Title = "Arrived",
+                            Content = "Walked to " .. Value,
+                            Duration = 2
+                        })
+                    else
+                        -- Fallback to teleport if pathfinding fails
+                        rootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0)
+                        Fluent:Notify({
+                            Title = "Teleported",
+                            Content = "Pathfinding failed, teleported to " .. Value,
+                            Duration = 2
+                        })
                     end
-                    
-                    Fluent:Notify({
-                        Title = "Arrived",
-                        Content = "Walked to " .. Value,
-                        Duration = 2
-                    })
                 else
-                    -- Fallback to teleport if pathfinding fails
+                    -- Teleport mode
                     rootPart.CFrame = targetCFrame + Vector3.new(0, 5, 0)
                     Fluent:Notify({
                         Title = "Teleported",
-                        Content = "Pathfinding failed, teleported to " .. Value,
+                        Content = "Teleported to " .. Value,
                         Duration = 2
                     })
                 end
